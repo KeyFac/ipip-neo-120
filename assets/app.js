@@ -65,6 +65,8 @@
 
   /* ── 文案 ─────────────────────────────────────────── */
 
+  function other (l) { return l === 'zh' ? 'en' : 'zh' }
+
   function t (key, vars) {
     var table = I18N[LANG] || I18N.zh
     var s = table[key]
@@ -220,17 +222,10 @@
 
   function renderQuestion () {
     var q = QS[state.index]
+    var alt = other(LANG)
     el.qText.textContent = q.text[LANG]
-
-    // 英文模式只用原文，不挂中文翻译作对照；中文模式才附注英文原文
-    if (LANG === 'zh') {
-      el.qSub.textContent = q.text.en
-      el.qSub.setAttribute('lang', 'en')
-      el.qSub.hidden = false
-    } else {
-      el.qSub.textContent = ''
-      el.qSub.hidden = true
-    }
+    el.qSub.textContent = q.text[alt]
+    el.qSub.setAttribute('lang', alt === 'zh' ? 'zh-CN' : 'en')
 
     var cur = state.answers[state.index]
     $$('.opt', el.scale).forEach(function (b) {
@@ -335,15 +330,15 @@
       var d = dmap[s.key]
       var band = domainBand(s.pct)
       var facets = scores.facets.filter(function (f) { return f.domain === s.key })
-      var altName = LANG === 'zh'
-        ? '<span class="domain-abbr" lang="en">' + esc(d.names.en) + '</span>'
-        : ''
+      var alt = other(LANG)
 
       html += '<article class="domain" data-key="' + d.key + '"' +
         ' style="--c:' + d.color + ';--v:' + s.pct + '">' +
         '<div class="domain-head">' +
           '<span class="domain-key">' + d.key + '</span>' +
-          '<h2 class="domain-name">' + esc(d.names[LANG]) + altName + '</h2>' +
+          '<h2 class="domain-name">' + esc(d.names[LANG]) +
+            '<span class="domain-abbr" lang="' + (alt === 'zh' ? 'zh-CN' : 'en') + '">' +
+            esc(d.names[alt]) + '</span></h2>' +
           '<span class="domain-score">' + s.pct + '</span>' +
         '</div>' +
         '<div class="track" role="img" aria-label="' +
@@ -360,13 +355,13 @@
           facets.map(function (f) {
             var meta = fmap[f.key]
             var name = meta ? meta.names[LANG] : f.key
-            var sub = (meta && LANG === 'zh')
-              ? '<span lang="en">' + esc(meta.names.en) + '</span>'
-              : ''
+            var sub = meta ? meta.names[other(LANG)] : ''
             var note = meta ? meta.bands[LANG][facetBand(f.pct)] : ''
             return '<div class="facet" style="--c:' + d.color + ';--v:' + f.pct + '">' +
               '<div class="facet-head">' +
-                '<span class="facet-name">' + esc(name) + sub + '</span>' +
+                '<span class="facet-name">' + esc(name) +
+                  '<span lang="' + (other(LANG) === 'zh' ? 'zh-CN' : 'en') + '">' +
+                  esc(sub) + '</span></span>' +
                 '<span class="facet-score">' + f.pct + '</span>' +
               '</div>' +
               '<div class="facet-track" role="img" aria-label="' +

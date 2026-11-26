@@ -22,7 +22,8 @@ python -m http.server 8000 --directory .
 index.html          页面结构（介绍 / 作答 / 结果三个视图）
 assets/style.css    样式
 assets/app.js       作答流程、计分、结果渲染、导出
-assets/data.js      量表数据（自动生成，勿手改）
+assets/data.js      量表数据，每条都带 zh / en（自动生成，勿手改）
+assets/i18n.js      界面文案，zh / en 两套
 assets/favicon.svg  图标
 .nojekyll           让 GitHub Pages 跳过 Jekyll 处理
 ```
@@ -53,6 +54,19 @@ assets/favicon.svg  图标
 - 反向条目在中文里也保持"反向"——不额外加否定词
 
 如果你需要临床、科研或任何有常模的正式评估，请使用经过本地化验证的专业版本。
+
+## 中英切换
+
+右上角 `中文 / EN` 是整站切换，不是只换题面：
+
+- 界面文案（按钮、说明、提示、导出文本）在 `assets/i18n.js`
+- 题目、维度名、层面名、全部解读文字在 `assets/data.js`，每条都是 `{ zh, en }`
+- 题面下方始终显示另一种语言作为对照，跟着当前语言自动对调
+- 切换后端会重写 `<html lang>`，英文版自动换成拉丁字体优先的字体栈
+  （否则中文标点字体会把 `’ “ ”` 渲染成全角，字距被撑开）
+- 选择存在 `localStorage`，刷新后保持；结果页切换语言时，已展开的层面保持展开
+
+英文解读不是中文的逐字直译，是按英文语感重写的，人称和语气与中文版一致。
 
 ## 计分
 

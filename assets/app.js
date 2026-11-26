@@ -1,30 +1,29 @@
 /* IPIP-NEO-120 — 前端逻辑
-   无依赖、无请求：作答、计分、结果全部在本地完成。 */
+   无依赖、无请求：作答、计分、结果全部在本地完成。
+   双语：界面文案在 i18n.js，量表文字在 data.js（每条都带 zh / en）。 */
 (function () {
   'use strict'
 
   var D = window.NEO_DATA
+  var I18N = window.NEO_I18N
   var QS = D.questions
   var N = QS.length
   var STORE_KEY = 'ipip-neo-120:v1'
+  var LANG_KEY = 'ipip-neo-120:lang'
 
-  var OPTIONS = [
-    { v: 1, label: '非常不符' },
-    { v: 2, label: '比较不符' },
-    { v: 3, label: '说不准' },
-    { v: 4, label: '比较符合' },
-    { v: 5, label: '非常符合' }
-  ]
+  var LANGS = ['zh', 'en']
+  var LANG = 'zh'
 
   var DOMAIN_BANDS = [
-    { lt: 20, key: 'vlow', label: '很低' },
-    { lt: 40, key: 'low', label: '偏低' },
-    { lt: 60, key: 'mid', label: '中等' },
-    { lt: 80, key: 'high', label: '偏高' },
-    { lt: Infinity, key: 'vhigh', label: '很高' }
+    { lt: 20, key: 'vlow', label: 'band.vlow' },
+    { lt: 40, key: 'low', label: 'band.low' },
+    { lt: 60, key: 'mid', label: 'band.mid' },
+    { lt: 80, key: 'high', label: 'band.high' },
+    { lt: Infinity, key: 'vhigh', label: 'band.vhigh' }
   ]
 
   var $ = function (sel, root) { return (root || document).querySelector(sel) }
+  var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)) }
 
   var el = {
     intro: $('#view-intro'),
@@ -38,7 +37,7 @@
     hudNow: $('#hudNow'),
     hudDone: $('#hudDone'),
     qText: $('#qText'),
-    qEn: $('#qEn'),
+    qSub: $('#qSub'),
     scale: $('#scale'),
     backBtn: $('#backBtn'),
     quitBtn: $('#quitBtn'),
@@ -50,7 +49,8 @@
     jsonBtn: $('#jsonBtn'),
     retakeBtn: $('#retakeBtn'),
     actionNote: $('#actionNote'),
-    homeLink: $('#homeLink')
+    homeLink: $('#homeLink'),
+    metaDesc: $('#metaDesc')
   }
 
   var state = {
@@ -62,6 +62,58 @@
 
   var locked = false
   var tickEls = []
+
+  /* ── 文案 ─────────────────────────────────────────── */
+
+  function other (l) { return l === 'zh' ? 'en' : 'zh' }
+
+  function t (key, vars) {
+    var table = I18N[LANG] || I18N.zh
+    var s = table[key]
+    if (s === undefined) s = I18N.zh[key]
+    if (s === undefined) return key
+    if (vars) {
+      s = s.replace(/\{(\w+)\}/g, function (m, k) {
+        return Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : m
+      })
+    }
+    return s
+  }
+
+  function applyStatic () {
+    document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en'
+    document.title = t('doc.title')
+    if (el.metaDesc) el.metaDesc.setAttribute('content', t('doc.desc'))
+    $$('[data-i18n]').forEach(function (node) {
+      node.innerHTML = t(node.getAttribute('data-i18n'))
+    })
+    $$('.lang-btn').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.lang === LANG))
+    })
+  }
+
+  function setLang (next) {
+    if (LANGS.indexOf(next) < 0 || next === LANG) return
+    var expanded = $$('.facet-toggle[aria-expanded="true"]')
+      .map(function (b) { return b.getAttribute('aria-controls') })
+    LANG = next
+    try { localStorage.setItem(LANG_KEY, LANG) } catch (e) {}
+
+    applyStatic()
+    renderDomainIndex()
+    buildScale()
+    refreshResume()
+
+    if (state.view === 'test') {
+      renderQuestion()
+    } else if (state.view === 'result') {
+      renderResult({ animate: false })
+      expanded.forEach(function (id) {
+        var btn = $('.facet-toggle[aria-controls="' + id + '"]')
+        if (btn) btn.click()
+      })
+    }
+  }
 
   /* ── 存储 ─────────────────────────────────────────── */
 
@@ -107,9 +159,9 @@
     D.domains.forEach(function (d) {
       html += '<div class="domain-index-row">' +
         '<dt class="domain-index-key">' + d.key + '</dt>' +
-        '<dd class="domain-index-name">' + esc(d.name) + '</dd>' +
-        '<dd class="domain-index-count">6 个层面，24 题</dd>' +
-        '<dd class="domain-index-gloss">' + esc(d.gloss) + '</dd>' +
+        '<dd class="domain-index-name">' + esc(d.names[LANG]) + '</dd>' +
+        '<dd class="domain-index-count">' + esc(t('domain.count', { n: 6 })) + '</dd>' +
+        '<dd class="domain-index-gloss">' + esc(d.gloss[LANG]) + '</dd>' +
         '</div>'
     })
     el.domainIndex.innerHTML = html
@@ -120,14 +172,15 @@
     var done = saved ? saved.answers.filter(function (a) { return a !== null }).length : 0
     if (done >= N) {
       el.resumeBtn.hidden = false
-      el.resumeBtn.textContent = '查看上次结果'
-      el.ctaNote.textContent = '这台设备上还存着一次已完成的作答。'
+      el.resumeBtn.textContent = t('intro.viewLast')
+      el.ctaNote.textContent = t('intro.noteDone')
     } else if (done > 0) {
       el.resumeBtn.hidden = false
-      el.resumeBtn.textContent = '继续上次（已答 ' + done + ' / 120）'
-      el.ctaNote.textContent = '上次的作答还留在这台设备上。'
+      el.resumeBtn.textContent = t('intro.resume', { n: done })
+      el.ctaNote.textContent = t('intro.noteSaved')
     } else {
       el.resumeBtn.hidden = true
+      el.ctaNote.textContent = t('intro.note')
     }
   }
 
@@ -137,29 +190,29 @@
     var frag = document.createDocumentFragment()
     tickEls = []
     for (var i = 0; i < N; i++) {
-      var t = document.createElement('span')
-      t.className = 'tick'
-      frag.appendChild(t)
-      tickEls.push(t)
+      var node = document.createElement('span')
+      node.className = 'tick'
+      frag.appendChild(node)
+      tickEls.push(node)
     }
     el.ticks.appendChild(frag)
   }
 
   function buildScale () {
     var html = ''
-    OPTIONS.forEach(function (o) {
-      html += '<button type="button" class="opt" role="radio" aria-checked="false" data-v="' + o.v + '">' +
-        '<span class="opt-num">' + o.v + '</span>' +
-        '<span class="opt-label">' + o.label + '</span>' +
+    for (var v = 1; v <= 5; v++) {
+      html += '<button type="button" class="opt" role="radio" aria-checked="false" data-v="' + v + '">' +
+        '<span class="opt-num">' + v + '</span>' +
+        '<span class="opt-label">' + esc(t('likert.' + v)) + '</span>' +
         '</button>'
-    })
+    }
     el.scale.innerHTML = html
   }
 
   function updateHud () {
     var done = state.answers.filter(function (a) { return a !== null }).length
     el.hudNow.textContent = String(state.index + 1)
-    el.hudDone.textContent = String(done)
+    el.hudDone.textContent = t('test.answeredN', { n: done })
     el.finishBtn.hidden = done < N
     for (var i = 0; i < N; i++) {
       tickEls[i].classList.toggle('is-done', state.answers[i] !== null)
@@ -169,14 +222,16 @@
 
   function renderQuestion () {
     var q = QS[state.index]
-    el.qText.textContent = q.t
-    el.qEn.textContent = q.en
+    var alt = other(LANG)
+    el.qText.textContent = q.text[LANG]
+    el.qSub.textContent = q.text[alt]
+    el.qSub.setAttribute('lang', alt === 'zh' ? 'zh-CN' : 'en')
+
     var cur = state.answers[state.index]
-    var opts = el.scale.querySelectorAll('.opt')
-    for (var i = 0; i < opts.length; i++) {
-      opts[i].setAttribute('aria-checked',
-        String(cur !== null && Number(opts[i].dataset.v) === cur))
-    }
+    $$('.opt', el.scale).forEach(function (b) {
+      b.setAttribute('aria-checked', String(cur !== null && Number(b.dataset.v) === cur))
+    })
+
     el.backBtn.disabled = state.index === 0
     el.backBtn.style.opacity = state.index === 0 ? '.45' : ''
     el.backBtn.style.cursor = state.index === 0 ? 'not-allowed' : ''
@@ -220,7 +275,6 @@
 
   function computeScores () {
     var facetRaw = {}
-    var facetN = {}
     var domainRaw = {}
 
     QS.forEach(function (q, idx) {
@@ -229,27 +283,17 @@
       var s = q.k === 1 ? r : 6 - r
       var fk = q.d + q.f
       facetRaw[fk] = (facetRaw[fk] || 0) + s
-      facetN[fk] = (facetN[fk] || 0) + 1
       domainRaw[q.d] = (domainRaw[q.d] || 0) + s
     })
 
     var domains = D.domains.map(function (d) {
       var raw = domainRaw[d.key] || 0
-      return {
-        key: d.key,
-        raw: raw,
-        pct: Math.round((raw - 24) / 96 * 100)
-      }
+      return { key: d.key, raw: raw, pct: Math.round((raw - 24) / 96 * 100) }
     })
 
     var facets = D.facets.map(function (f) {
       var raw = facetRaw[f.key] || 0
-      return {
-        key: f.key,
-        domain: f.domain,
-        raw: raw,
-        pct: Math.round((raw - 4) / 16 * 100)
-      }
+      return { key: f.key, domain: f.domain, raw: raw, pct: Math.round((raw - 4) / 16 * 100) }
     })
 
     return { domains: domains, facets: facets }
@@ -270,10 +314,9 @@
 
   /* ── 结果页 ───────────────────────────────────────── */
 
-  function renderResult () {
+  function renderResult (opts) {
+    var animate = !opts || opts.animate !== false
     var scores = computeScores()
-    var byKey = {}
-    scores.domains.forEach(function (d) { byKey[d.key] = d })
 
     var dmap = {}
     D.domains.forEach(function (d) { dmap[d.key] = d })
@@ -287,37 +330,42 @@
       var d = dmap[s.key]
       var band = domainBand(s.pct)
       var facets = scores.facets.filter(function (f) { return f.domain === s.key })
+      var alt = other(LANG)
 
       html += '<article class="domain" data-key="' + d.key + '"' +
         ' style="--c:' + d.color + ';--v:' + s.pct + '">' +
         '<div class="domain-head">' +
           '<span class="domain-key">' + d.key + '</span>' +
-          '<h2 class="domain-name">' + esc(d.name) +
-            '<span class="domain-abbr" lang="en">' + esc(d.en) + '</span></h2>' +
+          '<h2 class="domain-name">' + esc(d.names[LANG]) +
+            '<span class="domain-abbr" lang="' + (alt === 'zh' ? 'zh-CN' : 'en') + '">' +
+            esc(d.names[alt]) + '</span></h2>' +
           '<span class="domain-score">' + s.pct + '</span>' +
         '</div>' +
-        '<div class="track" role="img" aria-label="' + esc(d.name) + ' ' + s.pct +
-          ' 分，满分 100，量表中点 50">' +
+        '<div class="track" role="img" aria-label="' +
+          esc(t('result.aria.track', { name: d.names[LANG], pct: s.pct })) + '">' +
           '<div class="track-fill"></div><div class="track-mid"></div>' +
         '</div>' +
         '<div class="track-scale"><span>0</span><span>50</span><span>100</span></div>' +
-        '<p class="domain-band"><b>' + band.label + '</b>' + esc(d.bands[band.key]) + '</p>' +
+        '<p class="domain-band"><b>' + esc(t(band.label)) + '</b>' +
+          esc(d.bands[LANG][band.key]) + '</p>' +
         '<button type="button" class="facet-toggle" aria-expanded="false"' +
-          ' aria-controls="facets-' + d.key + '">展开 ' + facets.length + ' 个层面</button>' +
+          ' aria-controls="facets-' + d.key + '">' +
+          esc(t('result.expand', { n: facets.length })) + '</button>' +
         '<div class="facets" id="facets-' + d.key + '" hidden>' +
           facets.map(function (f) {
             var meta = fmap[f.key]
-            var name = meta ? meta.name : f.key
-            var en = meta ? meta.en : ''
-            var note = meta ? meta.bands[facetBand(f.pct)] : ''
+            var name = meta ? meta.names[LANG] : f.key
+            var sub = meta ? meta.names[other(LANG)] : ''
+            var note = meta ? meta.bands[LANG][facetBand(f.pct)] : ''
             return '<div class="facet" style="--c:' + d.color + ';--v:' + f.pct + '">' +
               '<div class="facet-head">' +
                 '<span class="facet-name">' + esc(name) +
-                  '<span lang="en">' + esc(en) + '</span></span>' +
+                  '<span lang="' + (other(LANG) === 'zh' ? 'zh-CN' : 'en') + '">' +
+                  esc(sub) + '</span></span>' +
                 '<span class="facet-score">' + f.pct + '</span>' +
               '</div>' +
-              '<div class="facet-track" role="img" aria-label="' + esc(name) + ' ' +
-                f.pct + ' 分"><i></i></div>' +
+              '<div class="facet-track" role="img" aria-label="' +
+                esc(t('result.aria.facet', { name: name, pct: f.pct })) + '"><i></i></div>' +
               '<p class="facet-note">' + esc(note) + '</p>' +
             '</div>'
           }).join('') +
@@ -329,14 +377,16 @@
     el.actionNote.textContent = ''
     show('result')
 
-    var cards = el.domainList.querySelectorAll('.domain')
+    if (!animate) {
+      $$('.domain', el.domainList).forEach(function (card) { card.classList.add('is-in') })
+      return
+    }
+    var cards = $$('.domain', el.domainList)
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
-        for (var i = 0; i < cards.length; i++) {
-          (function (card, delay) {
-            setTimeout(function () { card.classList.add('is-in') }, delay)
-          })(cards[i], 70 * i)
-        }
+        cards.forEach(function (card, i) {
+          setTimeout(function () { card.classList.add('is-in') }, 70 * i)
+        })
       })
     })
   }
@@ -345,13 +395,13 @@
     var sorted = domains.slice().sort(function (a, b) { return b.pct - a.pct })
     var top = sorted[0]
     var low = sorted[sorted.length - 1]
-    if (top.pct - low.pct < 8) {
-      return '五个维度之间差距不大，你的画像相对均衡。<span class="nb">0–100</span>' +
-        ' 是量表区间的换算值，不是人群百分位。'
-    }
-    return '在五个维度中，「' + esc(dmap[top.key].name) + '」最高（' + top.pct +
-      '），「' + esc(dmap[low.key].name) + '」最低（' + low.pct +
-      '）。<span class="nb">0–100</span> 是量表区间的换算值，不是人群百分位。'
+    if (top.pct - low.pct < 8) return t('result.balance')
+    return t('result.toplow', {
+      top: esc(dmap[top.key].names[LANG]),
+      a: top.pct,
+      low: esc(dmap[low.key].names[LANG]),
+      b: low.pct
+    })
   }
 
   /* ── 分享 / 导出 ──────────────────────────────────── */
@@ -361,8 +411,7 @@
   }
 
   function shareUrl () {
-    return location.origin + location.pathname + location.search +
-      '#r=' + answerCode()
+    return location.origin + location.pathname + location.search + '#r=' + answerCode()
   }
 
   function textReport () {
@@ -371,20 +420,19 @@
     D.domains.forEach(function (d) { dmap[d.key] = d })
     var fmap = {}
     D.facets.forEach(function (f) { fmap[f.key] = f })
-    var lines = ['IPIP-NEO-120 结果', '']
+
+    var lines = [t('result.reportHead'), '']
     scores.domains.forEach(function (s) {
       var d = dmap[s.key]
-      var band = domainBand(s.pct)
-      lines.push(d.name + '（' + d.key + '）  ' + s.pct + '/100  ' + band.label)
+      lines.push(d.names[LANG] + ' (' + d.key + ')  ' + s.pct + '/100  ' + t(domainBand(s.pct).label))
       scores.facets.filter(function (f) { return f.domain === s.key })
-        .map(function (f) {
+        .forEach(function (f) {
           var m = fmap[f.key]
-          return '    ' + (m ? m.name : f.key) + '  ' + f.pct
+          lines.push('    ' + (m ? m.names[LANG] : f.key) + '  ' + f.pct)
         })
-        .forEach(function (l) { lines.push(l) })
       lines.push('')
     })
-    lines.push('0–100 为量表区间换算值，非人群百分位。')
+    lines.push(t('result.reportFoot'))
     return lines.join('\n')
   }
 
@@ -403,7 +451,7 @@
       ta.style.opacity = '0'
       document.body.appendChild(ta)
       ta.select()
-      try { document.execCommand('copy'); toast(okMsg) } catch (e) { toast('复制失败，请手动选择') }
+      try { document.execCommand('copy'); toast(okMsg) } catch (e) { toast(t('toast.fail')) }
       document.body.removeChild(ta)
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -420,7 +468,10 @@
       version: D.version,
       takenAt: new Date().toISOString(),
       answers: state.answers.slice(),
-      domains: scores.domains,
+      domains: scores.domains.map(function (s) {
+        return { key: s.key, name: D.domains.filter(function (d) { return d.key === s.key })[0].names.en,
+                 raw: s.raw, pct: s.pct }
+      }),
       facets: scores.facets
     }
     var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
@@ -432,7 +483,7 @@
     a.click()
     document.body.removeChild(a)
     setTimeout(function () { URL.revokeObjectURL(url) }, 1000)
-    toast('已下载 JSON 文件')
+    toast(t('toast.json'))
   }
 
   /* ── 事件 ─────────────────────────────────────────── */
@@ -440,7 +491,7 @@
   el.startBtn.addEventListener('click', function () {
     var saved = loadSaved()
     var done = saved ? saved.answers.filter(function (a) { return a !== null }).length : 0
-    if (done > 0 && !window.confirm('开始新的作答会清掉上次的记录，确定吗？')) return
+    if (done > 0 && !window.confirm(t('intro.confirmRestart'))) return
     clearSaved()
     state.answers = new Array(N).fill(null)
     state.index = 0
@@ -456,8 +507,8 @@
     state.answers = saved.answers.slice()
     state.startedAt = saved.startedAt || Date.now()
     var first = state.answers.findIndex(function (a) { return a === null })
-    state.index = first < 0 ? N - 1 : first
     if (first < 0) { renderResult(); return }
+    state.index = first
     show('test')
     renderQuestion()
   })
@@ -474,7 +525,7 @@
     save()
     show('intro')
     refreshResume()
-    el.ctaNote.textContent = '进度已保存，可以随时继续。'
+    el.ctaNote.textContent = t('intro.noteQuit')
   })
 
   el.finishBtn.addEventListener('click', function () {
@@ -495,22 +546,16 @@
     var open = btn.getAttribute('aria-expanded') === 'true'
     btn.setAttribute('aria-expanded', String(!open))
     if (panel) panel.hidden = open
-    btn.textContent = (open ? '展开 ' : '收起 ') +
-      (panel ? panel.children.length : 6) + ' 个层面'
+    btn.textContent = t(open ? 'result.expand' : 'result.collapse',
+      { n: panel ? panel.children.length : 6 })
   })
 
-  el.shareBtn.addEventListener('click', function () {
-    copyText(shareUrl(), '链接已复制')
-  })
-
-  el.copyBtn.addEventListener('click', function () {
-    copyText(textReport(), '文字结果已复制')
-  })
-
+  el.shareBtn.addEventListener('click', function () { copyText(shareUrl(), t('toast.share')) })
+  el.copyBtn.addEventListener('click', function () { copyText(textReport(), t('toast.copy')) })
   el.jsonBtn.addEventListener('click', downloadJson)
 
   el.retakeBtn.addEventListener('click', function () {
-    if (!window.confirm('清空本次结果，重新作答？')) return
+    if (!window.confirm(t('result.confirmRetake'))) return
     clearSaved()
     state.answers = new Array(N).fill(null)
     state.index = 0
@@ -518,6 +563,11 @@
     if (location.hash) history.replaceState(null, '', location.pathname + location.search)
     show('intro')
     refreshResume()
+    el.ctaNote.textContent = t('intro.note')
+  })
+
+  $$('.lang-btn').forEach(function (b) {
+    b.addEventListener('click', function () { setLang(b.dataset.lang) })
   })
 
   document.addEventListener('keydown', function (e) {
@@ -554,6 +604,12 @@
     return true
   }
 
+  try {
+    var stored = localStorage.getItem(LANG_KEY)
+    if (LANGS.indexOf(stored) >= 0) LANG = stored
+  } catch (e) {}
+
+  applyStatic()
   renderDomainIndex()
   buildTicks()
   buildScale()

@@ -16,8 +16,9 @@
 
   --sans: "Inter", "PingFang SC", "HarmonyOS Sans SC", "Noto Sans CJK SC",
           "Microsoft YaHei", system-ui, -apple-system, sans-serif;
-  --serif: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", "STSong",
-           "SimSun", Georgia, serif;
+  --serif-cjk: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", "STSong",
+               "SimSun", Georgia, serif;
+  --serif: var(--serif-cjk);
   --serif-en: Georgia, "Times New Roman", "Songti SC", serif;
 
   --measure: 720px;
@@ -111,11 +112,31 @@ code {
 .wordmark-slash { color: var(--ink-3); font-weight: 400; margin: 0 .18em; }
 
 .masthead-nav {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
   font-size: .82rem;
   letter-spacing: .04em;
 }
 .masthead-nav a { color: var(--ink-2); border-bottom-color: transparent; }
 .masthead-nav a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+.lang-switch {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.lang-btn {
+  font-size: .78rem;
+  letter-spacing: .04em;
+  padding: 2px 6px;
+  color: var(--ink-3);
+  border-bottom: 1px solid transparent;
+  transition: color .18s var(--ease), border-color .18s var(--ease);
+}
+.lang-btn:hover { color: var(--ink); }
+.lang-btn[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
 
 /* ── 主体容器 ───────────────────────────────────────── */
 
@@ -332,7 +353,7 @@ code {
   text-wrap: balance;
 }
 
-.q-en {
+.q-sub {
   font-family: var(--serif-en);
   font-style: italic;
   font-size: .92rem;
@@ -608,7 +629,7 @@ code {
   .opt-label { font-size: .68rem; letter-spacing: 0; }
 
   .q-text { line-height: 1.58; }
-  .q-en { font-size: .84rem; margin-top: 12px; }
+  .q-sub { font-size: .84rem; margin-top: 12px; }
 
   .test-foot { flex-direction: column; align-items: flex-start; gap: 10px; }
 
@@ -625,6 +646,49 @@ code {
 @media (max-width: 380px) {
   .opt-label { font-size: .62rem; }
   .key-hint { display: none; }
+}
+
+/* ── 英文版式的微调 ─────────────────────────────────── */
+
+html[lang="en"] {
+  /* 拉丁字体优先：否则 YaHei 会把 ’ “ ” 渲染成全角标点，字距被撑开 */
+  --sans: "Segoe UI", Inter, "Helvetica Neue", "PingFang SC", "Microsoft YaHei",
+          system-ui, sans-serif;
+  --serif: "Palatino Linotype", Palatino, "Iowan Old Style", "Book Antiqua", Georgia, serif;
+}
+
+html[lang="en"] .q-text {
+  line-height: 1.42;
+  letter-spacing: 0;
+}
+
+html[lang="en"] .q-sub {
+  font-family: var(--serif-cjk);
+  font-style: normal;
+  font-size: .88rem;
+  letter-spacing: .02em;
+}
+
+html[lang="en"] .display {
+  line-height: 1.1;
+  letter-spacing: -.01em;
+}
+
+html[lang="en"] .opt-label {
+  font-size: .7rem;
+  line-height: 1.25;
+}
+
+html[lang="en"] .domain-name { font-size: 1.28rem; }
+
+html[lang="en"] .lede,
+html[lang="en"] .body,
+html[lang="en"] .about p { line-height: 1.72; }
+
+@media (max-width: 640px) {
+  html[lang="en"] .opt-label { font-size: .64rem; }
+  html[lang="en"] .domain-name { font-size: 1.12rem; }
+  html[lang="en"] .display { font-size: clamp(1.9rem, 8vw, 2.4rem); }
 }
 
 /* ── 动效克制 ───────────────────────────────────────── */

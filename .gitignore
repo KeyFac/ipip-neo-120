@@ -1,0 +1,5 @@
+_vendor/
+_build/
+.DS_Store
+Thumbs.db
+*.log

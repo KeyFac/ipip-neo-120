@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IPIP-NEO-120 · 大五人格问卷</title>
+<meta name="description" content="IPIP-NEO-120 大五人格问卷：120 条陈述，测量神经质、外向性、开放性、宜人性、尽责性五个维度及三十个层面。全部在浏览器本地计算，不上传答案。">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <a class="wordmark" id="homeLink" href="./">IPIP<span class="wordmark-slash">/</span>NEO<span class="wordmark-slash">/</span>120</a>
+  <nav class="masthead-nav">
+    <a href="#about">关于</a>
+  </nav>
+</header>
+
+<main class="shell">
+
+  <!-- ─────────────  介绍  ───────────── -->
+  <section class="view" id="view-intro">
+    <h1 class="display">大五人格问卷</h1>
+    <p class="lede">
+      120 条陈述，测量人格的五个维度，以及每个维度下的六个层面。
+      题目来自公共领域的 IPIP 题库（Johnson, 2014 的 120 题版本）。
+    </p>
+    <p class="body">
+      没有对错，也没有「好」的人格。请按这句话<strong>有多像平时的你</strong>来回答，
+      而不是你希望自己是什么样。凭第一反应作答，比反复权衡更准。
+    </p>
+
+    <div class="cta-row">
+      <button class="btn btn-primary" id="startBtn" type="button">开始作答</button>
+      <button class="btn btn-quiet" id="resumeBtn" type="button" hidden>继续上次</button>
+    </div>
+    <p class="micro" id="ctaNote">约 12–15 分钟。答案只保存在这台设备的浏览器里。</p>
+
+    <hr class="rule">
+
+    <h2 class="section-title">这个问卷测什么</h2>
+    <dl class="domain-index" id="domainIndex">
+      <!-- JS 渲染 -->
+    </dl>
+
+    <hr class="rule" id="about">
+
+    <section class="about">
+      <h2 class="section-title">关于这份问卷</h2>
+
+      <h3>题目与计分</h3>
+      <p>
+        英文条目出自 Johnson (2014) 的 120 题 IPIP-NEO-PI-R，取自公共领域（public domain）的
+        International Personality Item Pool。共 5 个维度、30 个层面，每个层面 4 条陈述，
+        其中 55 条为反向计分。用户在 1–5 五点量表上作答，反向条目先翻转再累加。
+      </p>
+
+      <h3>关于中文</h3>
+      <p>
+        中文译句由本项目自行翻译，力求口语化、避免成语（成语自带褒贬，会干扰作答）。
+        它<strong>不是</strong>经过信效度检验的正式中文版量表。如果你需要临床或科研用途，
+        请使用有中文常模和效度报告的专业版本。
+      </p>
+
+      <h3>关于分数</h3>
+      <p>
+        每个维度的原始分是 24 条累加（24–120），下面是 4 条累加（4–20）。页面显示的分数
+        把原始分线性换算到 <span class="nb">0–100</span>，方便阅读。<strong>它不是人群百分位</strong>——
+        没有常模数据，我们就不会给出「你比百分之多少人高」这类说法。
+        文字解读按分数区间给出，是一个描述，不是诊断。
+      </p>
+
+      <h3>隐私</h3>
+      <p>
+        这是一张纯静态网页。作答、计分、生成结果全部在你的浏览器里完成，没有任何请求会把
+        答案发到服务器。进度存在 localStorage，清掉浏览器数据就没了。
+        分享链接把答案编码在网址的 <code>#</code> 之后，只有拿到这个链接的人才能看到结果。
+      </p>
+    </section>
+  </section>
+
+  <!-- ─────────────  作答  ───────────── -->
+  <section class="view" id="view-test" hidden>
+    <div class="hud">
+      <div class="ticks" id="ticks" aria-hidden="true"></div>
+      <div class="hud-row">
+        <p class="hud-count"><span id="hudNow">1</span><span class="hud-of">/ 120</span></p>
+        <p class="hud-done">已答 <span id="hudDone">0</span></p>
+        <button class="btn-link" id="finishBtn" type="button" hidden>查看结果</button>
+        <button class="btn-link" id="quitBtn" type="button">退出</button>
+      </div>
+    </div>
+
+    <div class="question" id="question">
+      <p class="q-text" id="qText" aria-live="polite"></p>
+      <p class="q-en" id="qEn" lang="en"></p>
+    </div>
+
+    <div class="scale" id="scale" role="radiogroup" aria-labelledby="qText">
+      <!-- JS 渲染 -->
+    </div>
+
+    <div class="test-foot">
+      <button class="btn-link" id="backBtn" type="button">上一题</button>
+      <span class="key-hint">按 <kbd>1</kbd>–<kbd>5</kbd> 作答，<kbd>←</kbd> 回上一题</span>
+    </div>
+  </section>
+
+  <!-- ─────────────  结果  ───────────── -->
+  <section class="view" id="view-result" hidden>
+    <h1 class="display" id="resultTitle">你的结果</h1>
+    <p class="lede" id="resultLede"></p>
+
+    <div class="domains" id="domainList">
+      <!-- JS 渲染 -->
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-secondary" id="shareBtn" type="button">复制分享链接</button>
+      <button class="btn btn-secondary" id="copyBtn" type="button">复制文字结果</button>
+      <button class="btn btn-secondary" id="jsonBtn" type="button">下载 JSON</button>
+      <button class="btn btn-quiet" id="retakeBtn" type="button">重新作答</button>
+    </div>
+    <p class="micro" id="actionNote" role="status"></p>
+
+    <hr class="rule">
+
+    <section class="about">
+      <h2 class="section-title">怎么读这份结果</h2>
+      <p>
+        <span class="nb">0–100</span> 是量表区间的线性换算，50 是量表中点。它不是人群百分位，所以「72 分」的意思
+        是「在这个量表的区间里偏高」，不是「比 72% 的人高」。
+      </p>
+      <p>
+        五个维度彼此独立，不存在高低搭配上的好坏。同一个维度在不同场合会有不同表现；
+        一次作答只反映此刻的你。要看清一个人，这份报告最多算一张地图，不是地形本身。
+      </p>
+    </section>
+  </section>
+
+</main>
+
+<footer class="site-foot">
+  <p>
+    条目：IPIP（公共领域）· 中文翻译：本项目 · 数据与计分全部在本地完成
+  </p>
+  <p class="foot-dim">
+    本工具仅供自我了解，不构成心理评估或诊断。如持续感到困扰，请寻求专业帮助。
+  </p>
+</footer>
+
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

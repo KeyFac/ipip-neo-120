@@ -662,13 +662,6 @@ html[lang="en"] .q-text {
   letter-spacing: 0;
 }
 
-html[lang="en"] .q-sub {
-  font-family: var(--serif-cjk);
-  font-style: normal;
-  font-size: .88rem;
-  letter-spacing: .02em;
-}
-
 html[lang="en"] .display {
   line-height: 1.1;
   letter-spacing: -.01em;
